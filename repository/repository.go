@@ -1,19 +1,22 @@
 package repository
 
 import (
+	"database/sql"
 	"orderdetails/data"
 	"orderdetails/models"
 )
 
 func TotalRevenue(input models.Input) (float64, error) {
 	var totalRevenue float64
+	var result sql.NullFloat64
 	if err := data.Db.QueryRow(`
 	select sum((unit_price - discount) * quantity_sold) from order_items ot
 	join orders os ON ot.order_id = os.order_id 
 	where order_date between ? AND ?
-`, input.Startdate, input.Enddate).Scan(&totalRevenue); err != nil {
+`, input.Startdate, input.Enddate).Scan(&result); err != nil {
 		return totalRevenue, err
 	}
+	totalRevenue = result.Float64
 	return totalRevenue, nil
 }
 
@@ -34,11 +37,15 @@ func TotalRevenuebyproduct(input models.Input) ([]models.TotalRevenuebyproduct, 
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var content models.TotalRevenuebyproduct
-		err := rows.Scan(&content.Productname, &content.Revenue)
+		var productname sql.NullString
+		var revenue sql.NullFloat64
+		err := rows.Scan(&productname, &revenue)
 		if err != nil {
 			return result, err
 		}
+		var content models.TotalRevenuebyproduct
+		content.Productname = productname.String
+		content.Revenue = revenue.Float64
 		result = append(result, content)
 	}
 	return result, nil
@@ -62,11 +69,15 @@ func TotalRevenueByCategory(input models.Input) ([]models.TotalRevenueByCategory
 	}
 	defer rows.Close()
 	for rows.Next() {
+		var category sql.NullString
+		var revnue sql.NullFloat64
 		var content models.TotalRevenueByCategory
-		err := rows.Scan(&content.Category, &content.Revenue)
+		err := rows.Scan(&category, &revnue)
 		if err != nil {
 			return result, err
 		}
+		content.Category = category.String
+		content.Revenue = revnue.Float64
 		result = append(result, content)
 	}
 	return result, nil
